@@ -159,25 +159,27 @@ function Get-RowStat($bmp, $y, $width) {
 }
 
 function Get-ContentFingerprint($hwnd, $w, $h) {
-    # cheap NxM pixel-grid sample of the current window content, used to
-    # detect when a slow autostarted BASIC program has stopped drawing -
-    # far cheaper than hashing a full PNG encode of the frame
+    # full-frame hash of the current window content, used to detect when a
+    # slow autostarted BASIC program has stopped drawing. Used to be a
+    # sparse 32x24 pixel-grid sample (cheaper than hashing every pixel) but
+    # that missed a slow POKE loop that only advances a single 1px-wide
+    # column at a time (e.g. 64/sine.bas's bitmap draw) - the grid's ~24px
+    # spacing can straddle that moving column for several consecutive 3s
+    # polls, hitting requiredStreak and capturing a still-mid-draw frame.
+    # Hashing every pixel has no such blind spot.
     $bmp = New-Object System.Drawing.Bitmap -ArgumentList $w, $h
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $hdc = $g.GetHdc()
     [Win32]::PrintWindow($hwnd, $hdc, 2) | Out-Null
     $g.ReleaseHdc($hdc)
     $g.Dispose()
-    $sb = New-Object System.Text.StringBuilder
-    for ($gy = 0; $gy -lt 24; $gy++) {
-        $y = [int]($h * ($gy + 0.5) / 24)
-        for ($gx = 0; $gx -lt 32; $gx++) {
-            $x = [int]($w * ($gx + 0.5) / 32)
-            [void]$sb.Append($bmp.GetPixel($x, $y).ToArgb())
-        }
-    }
+    $rect = New-Object System.Drawing.Rectangle 0, 0, $w, $h
+    $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, $bmp.PixelFormat)
+    $bytes = New-Object byte[] ($data.Stride * $data.Height)
+    [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $bytes, 0, $bytes.Length)
+    $bmp.UnlockBits($data)
     $bmp.Dispose()
-    return $sb.ToString()
+    return [Convert]::ToBase64String([System.Security.Cryptography.MD5]::Create().ComputeHash($bytes))
 }
 
 function Get-EmulatorScreenshot($emuName, $useNtsc, $outFile, $basicPath) {
