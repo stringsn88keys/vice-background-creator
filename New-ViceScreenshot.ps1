@@ -183,9 +183,27 @@ New-Item -ItemType Directory -Path $workDir | Out-Null
 try {
     $argList = @()
     if ($ntscByEmulator[$Emulator]) { $argList += "-ntsc" }
+    $vicMemExpanded = ($Emulator -eq "xvic" -and $BasicFile -like "*-commented.bas")
+    if ($vicMemExpanded) {
+        # the "-commented.bas" listings add a REM line before nearly every
+        # line, which comfortably busts the unexpanded VIC-20's ~3071-byte
+        # BASIC workspace (top-of-memory is capped at 7168 by the listing's
+        # own poke52,28:poke56,28, same as the uncommented original - it's
+        # the 4097-byte BASIC start that needs to move). A 3k expander
+        # shifts BASIC start from $1001 down to $0401, freeing 3072 more
+        # bytes below that same cap - plenty of headroom - without touching
+        # the listing's char/screen memory addresses, which live in the
+        # separate $1000-$1FFF block this doesn't affect.
+        $argList += @("-memory", "3k")
+    }
 
     $basicPath = $null
     if ($BasicFile) {
+        # run the whole session in warp (full host speed, not real hardware
+        # speed) - an interpreted BASIC listing can take a while to finish
+        # drawing, and -autostart-warp only accelerates the mechanical
+        # load/inject step, not the program's actual execution afterward.
+        $argList += "-warp"
         $basicPath = Resolve-BasicFile -name $BasicFile
         # tokenize the ASCII BASIC listing into a machine-specific .prg via
         # VICE's own petcat, then boot straight into it with -autostart
@@ -193,7 +211,19 @@ try {
         if (-not (Test-Path $petcat)) { throw "petcat.exe not found: $petcat" }
         $prgPath = Join-Path $workDir "$Emulator.prg"
         $petcatArgs = @("-w$($petcatDialect[$Emulator])")
-        if ($petcatLoadAddr.Contains($Emulator)) { $petcatArgs += @("-l", $petcatLoadAddr[$Emulator]) }
+        if ($vicMemExpanded) {
+            # a 3k expander moves BASIC start from $1001 to $0401 - petcat's
+            # line-link addresses have to be computed for wherever the
+            # program actually lands, or BASIC's pointers end up chasing the
+            # wrong addresses. Reproduced this exact mismatch live: same
+            # listing, same -memory 3k, only the load address differed -
+            # $1001 hung right after the axes with no error text (it's
+            # printed through the listing's own blanked-out custom character
+            # set, so a real error there is invisible), $0401 ran correctly.
+            $petcatArgs += @("-l", "0401")
+        } elseif ($petcatLoadAddr.Contains($Emulator)) {
+            $petcatArgs += @("-l", $petcatLoadAddr[$Emulator])
+        }
         $petcatOut = & $petcat @petcatArgs -o $prgPath -- $basicPath 2>&1
         # petcat always exits 0 and still writes a file (silently falling back
         # to a default dialect) even for an unrecognized -w version, so exit
@@ -271,6 +301,21 @@ try {
             }
         }
 
+        # re-measure window geometry right here, immediately before capturing.
+        # $w/$h/$winRect above predate the content-stability poll, which can
+        # run for minutes on a slow interpreted BASIC program - if the window
+        # moved or resized during that wait, sizing $full from the stale rect
+        # while computing offsets from a freshly re-measured client rect
+        # produces an out-of-bounds Clone rectangle. GDI+ reports that bounds
+        # violation as a misleading "Bitmap.Clone: Out of memory" instead of
+        # an actual memory error (confirmed live: hit repeatedly across
+        # unrelated runs, always right at this Clone call). Measuring
+        # everything back-to-back here keeps them consistent with each other
+        # and with what PrintWindow is about to render.
+        [Win32]::GetWindowRect($hwnd, [ref]$winRect) | Out-Null
+        $w = $winRect.Right - $winRect.Left
+        $h = $winRect.Bottom - $winRect.Top
+
         # full window capture via PrintWindow (works even if occluded by other windows)
         $full = New-Object System.Drawing.Bitmap -ArgumentList $w, $h
         $g = [System.Drawing.Graphics]::FromImage($full)
@@ -289,6 +334,15 @@ try {
         $offY = $origin.Y - $winRect.Top
         $cw = $clientRect.Right - $clientRect.Left
         $ch = $clientRect.Bottom - $clientRect.Top
+
+        # defensive clamp in case the window still changed in the brief gap
+        # between the rect measurement above and PrintWindow/GetClientRect
+        # just now - a slightly-cropped capture beats a hard crash on the
+        # whole run
+        if ($offX -lt 0) { $offX = 0 }
+        if ($offY -lt 0) { $offY = 0 }
+        if ($offX + $cw -gt $w) { $cw = $w - $offX }
+        if ($offY + $ch -gt $h) { $ch = $h - $offY }
 
         $client = $full.Clone((New-Object System.Drawing.Rectangle $offX, $offY, $cw, $ch), $full.PixelFormat)
         $full.Dispose()
