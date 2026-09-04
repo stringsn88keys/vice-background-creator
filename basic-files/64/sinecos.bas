@@ -7,8 +7,8 @@
 70 ox=160 : oy=100
 80 for x=0 to 319 : y=oy : gosub 200 : next x
 90 for y=0 to 199 : x=ox : gosub 200 : next y
-100 for x=0 to 319 : y=oy-int(80*sin((x-ox)*.0393)) : gosub 200 : next x
-110 for x=0 to 319 : y=oy-int(80*cos((x-ox)*.0393)) : gosub 200 : next x
+100 for x=0 to 319 : y=oy-int(13*sin((x-ox)*.0393)) : gosub 200 : next x
+110 for x=0 to 319 : y=oy-int(13*cos((x-ox)*.0393)) : gosub 200 : next x
 120 goto 120
 200 a=8192+int(y/8)*320+int(x/8)*8+(y and 7)
 210 poke a,peek(a) or 2^(7-(x and 7))
