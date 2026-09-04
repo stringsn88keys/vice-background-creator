@@ -17,6 +17,8 @@
 170 if co=cc and ro=cr then 200
 180 if nc<63 then nc=nc+1
 190 cc=co : cr=ro : ch=nc : poke 7680+ro*22+co,ch : poke 38400+ro*22+co,6
+191 if ro=rh then poke 7168+ch*8+(oy and 7),255
+192 if co=cv then for j=0 to 7 : poke 7168+ch*8+j,peek(7168+ch*8+j) or 2^(7-(ox and 7)) : next j
 200 a=7168+ch*8+(y-ro*8)
 210 poke a,peek(a) or 2^(7-(x-co*8))
 220 next x
