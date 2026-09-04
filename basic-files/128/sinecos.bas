@@ -1,0 +1,16 @@
+10 graphic 1,1
+20 ox=160 : oy=100
+30 draw 1,0,oy to 319,oy
+40 draw 1,ox,0 to ox,199
+50 px=0 : py=oy-int(80*sin((0-ox)*.0393))
+60 qx=0 : qy=oy-int(80*cos((0-ox)*.0393))
+70 for x=1 to 319
+80 y=oy-int(80*sin((x-ox)*.0393))
+90 draw 1,px,py to x,y
+100 px=x : py=y
+110 z=oy-int(80*cos((x-ox)*.0393))
+120 draw 1,qx,qy to x,z
+130 qx=x : qy=z
+140 next x
+150 get a$ : if a$="" then 150
+160 graphic 0
