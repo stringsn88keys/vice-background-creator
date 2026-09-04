@@ -13,7 +13,7 @@
 130 dim cch(63), rch(63)
 140 nc=2 : cc=-1 : cr=-1
 150 for x=0 to 175
-160 y=oy-int(44*sin((x-ox)*.0714))
+160 y=oy-int(12*sin((x-ox)*.0714))
 170 co=int(x/8) : ro=int(y/8)
 180 if co=cc and ro=cr then 260
 190 if nc<63 then nc=nc+1
@@ -27,7 +27,7 @@
 280 next x
 290 cc=-1 : cr=-1
 300 for x=0 to 175
-310 y=oy-int(44*cos((x-ox)*.0714))
+310 y=oy-int(12*cos((x-ox)*.0714))
 320 co=int(x/8) : ro=int(y/8)
 330 if co=cc and ro=cr then 470
 340 ch=0
