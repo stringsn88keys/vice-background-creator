@@ -14,6 +14,12 @@ Optionally autostarts a BASIC listing on every emulator first, so the grid shows
 
 See `Get-Help .\New-ViceMeetBackground.ps1 -Full` for all parameters (VICE folder, output paths, capture timing).
 
+Each emulator's screenshot is captured by `New-ViceScreenshot.ps1`, run as its own isolated process per emulator. It also works standalone for just one machine:
+
+```powershell
+.\New-ViceScreenshot.ps1 -Emulator xvic -BasicFile "sinecos.bas" -OutputFile "C:\tmp\xvic.png"
+```
+
 ## Examples
 
 Unflipped 2x2 grid, all four emulators at the default READY screen:
@@ -29,7 +35,7 @@ Flipped (mirrored) version used as the actual Meet background:
 BASIC listings the `-BasicFile` parameter can autostart, tokenized to a `.prg` via VICE's `petcat` at runtime. Organized by target:
 
 - `common/` - shared across all emulators (e.g. `10print.bas`)
-- `64/`, `128/`, `vic-20/`, `plus4/` - emulator-specific listings (each currently has a `sine.bas`)
+- `64/`, `128/`, `vic-20/`, `plus4/` - emulator-specific listings (each currently has a `sine.bas` and a `sinecos.bas`)
 
 A file is looked up in `common/` first, then the emulator-specific folder.
 
